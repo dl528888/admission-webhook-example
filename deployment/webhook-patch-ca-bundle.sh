@@ -7,7 +7,7 @@ set -o nounset
 set -o pipefail
 
 
-export CA_BUNDLE=$(kubectl config view --raw --flatten -o json | jq -r '.clusters[] | select(.name == "'$(kubectl config current-context)'") | .cluster."certificate-authority-data"')
+export CA_BUNDLE=$(kubectl config view --raw --flatten -o json | jq -r '.clusters[] | select(.name == "'$(kubectl config current-context|cut -d@ -f 2)'") | .cluster."certificate-authority-data"')
 
 if command -v envsubst >/dev/null 2>&1; then
     envsubst
