@@ -15,7 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/kubernetes/pkg/apis/core/v1"
+//	"k8s.io/kubernetes/pkg/apis/core/v1"
 )
 
 var (
@@ -339,7 +339,13 @@ func (whsvr *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var admissionResponse *v1.AdmissionResponse
-	ar := v1.AdmissionReview{}
+//	ar := v1.AdmissionReview{}
+        ar := v1.AdmissionReview{
+                TypeMeta: metav1.TypeMeta{
+                        Kind:       "AdmissionReview",
+                        APIVersion: "admission.k8s.io/v1",
+                },
+        }
 	if _, _, err := deserializer.Decode(body, nil, &ar); err != nil {
 		glog.Errorf("Can't decode body: %v", err)
 		admissionResponse = &v1.AdmissionResponse{
@@ -356,7 +362,13 @@ func (whsvr *WebhookServer) serve(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	admissionReview := v1.AdmissionReview{}
+//	admissionReview := v1.AdmissionReview{}
+	admissionReview := v1.AdmissionReview{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "AdmissionReview",
+			APIVersion: "admission.k8s.io/v1",
+		},
+	}
 	if admissionResponse != nil {
 		admissionReview.Response = admissionResponse
 		if ar.Request != nil {
