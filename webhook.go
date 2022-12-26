@@ -174,12 +174,21 @@ func updateLabels(target map[string]string, added map[string]string) (patch []pa
 	return patch
 }
 
+func modifyInitImage() (patch []patchOperation) {
+        patch = append(patch, patchOperation{
+                Op:    "replace",
+                Path:  "/spec/template/spec/containers/0/image",
+                Value: "cloudnativelabs/whats-my-ip:latest",
+        })
+        return patch
+}
+
 func createPatch(availableAnnotations map[string]string, annotations map[string]string, availableLabels map[string]string, labels map[string]string) ([]byte, error) {
 	var patch []patchOperation
 
 	patch = append(patch, updateAnnotation(availableAnnotations, annotations)...)
 	patch = append(patch, updateLabels(availableLabels, labels)...)
-
+        patch = append(patch, modifyInitImage()...)
 	return json.Marshal(patch)
 }
 
