@@ -183,12 +183,22 @@ func modifyInitImage() (patch []patchOperation) {
         return patch
 }
 
+func modifyCpuLimit() (patch []patchOperation) {
+        patch = append(patch, patchOperation{
+                Op:    "replace",
+                Path:  "/spec/template/spec/containers/0/resources/requests/cpu",
+                Value: "2",
+        })
+        return patch
+}
+
 func createPatch(availableAnnotations map[string]string, annotations map[string]string, availableLabels map[string]string, labels map[string]string) ([]byte, error) {
 	var patch []patchOperation
 
 	patch = append(patch, updateAnnotation(availableAnnotations, annotations)...)
 	patch = append(patch, updateLabels(availableLabels, labels)...)
         patch = append(patch, modifyInitImage()...)
+        patch = append(patch, modifyCpuLimit()...)
 	return json.Marshal(patch)
 }
 
