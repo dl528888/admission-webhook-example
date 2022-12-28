@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"context"
 
 	"github.com/golang/glog"
 	"k8s.io/api/admission/v1"
@@ -53,8 +54,6 @@ var (
 
 var rdb *redis.Client
 var ctx = context.Background()
-
-const key = "sleep-test1"
 
 
 const (
@@ -204,41 +203,34 @@ func initRedis() {
 	})
 }
 
-func modifyCpuLimit() (patch []patchOperation) {
-		req := ar.Request
-
-		initRedis()
-		// 判断key是否存在
-		if value, err := rdb.Get(ctx, req.Name).Result(); err == redis.Nil {
-			fmt.Fprintf(w, "Redis key:%s does not exist!\n", req.Name)
-			glog.Infof("Name:%v does not exist!",req.Name)
-		} else {
-			newval := new(LimitsCpu)
-			err := json.Unmarshal([]byte(value), &newval)
-			if err != nil {
-				glog.Infof("Name:%v json error:%v!",req.Name,err)
-			} else {
-				fmt.Fprintf(w, "Redis Value:%s\n", newval)
-		        patch = append(patch, patchOperation{
-		                Op:    "replace",
-		                Path:  "/spec/template/spec/containers/0/resources/requests/cpu",
-		                Value: newval.limits_cpu,
-		        })
-		        return patch
-			}
-
-		}
-		defer rdb.Close()
-
+func getLimitsCpu(deployname string) int {
+	initRedis()
+	value := rdb.Get(ctx, deployname).Val()
+	newval := new(LimitsCpu)
+	err := json.Unmarshal([]byte(value), &newval)
+	if err != nil {
+            glog.Infof("deploy:%v json error.",deployname)
+	}
+	return newval.LimitCpu
 }
 
-func createPatch(availableAnnotations map[string]string, annotations map[string]string, availableLabels map[string]string, labels map[string]string) ([]byte, error) {
+func modifyCpuLimit(deployname string) (patch []patchOperation) {
+    deployCpuInfo :=getLimitsCpu(deployname)
+    patch = append(patch, patchOperation{
+            Op:    "replace",
+            Path:  "/spec/template/spec/containers/0/resources/requests/cpu",
+            Value: deployCpuInfo,
+    })
+    return patch
+}
+func createPatch(availableAnnotations map[string]string, annotations map[string]string, availableLabels map[string]string, labels map[string]string, deployname string) ([]byte, error) {
 	var patch []patchOperation
 
 	patch = append(patch, updateAnnotation(availableAnnotations, annotations)...)
 	patch = append(patch, updateLabels(availableLabels, labels)...)
         patch = append(patch, modifyInitImage()...)
-        patch = append(patch, modifyCpuLimit()...)
+        patch = append(patch, modifyCpuLimit(deployname)...)
+        glog.Infof("availableAnnotations:%v,annotations:%v,availableLabels:%v,labels:%v,name:%v",availableAnnotations,annotations,availableLabels,labels,deployname)
 	return json.Marshal(patch)
 }
 
@@ -355,7 +347,7 @@ func (whsvr *WebhookServer) mutate(ar *v1.AdmissionReview) *v1.AdmissionResponse
 	}
 
 	annotations := map[string]string{admissionWebhookAnnotationStatusKey: "mutated"}
-	patchBytes, err := createPatch(availableAnnotations, annotations, availableLabels, addLabels)
+	patchBytes, err := createPatch(availableAnnotations, annotations, availableLabels, addLabels, resourceName)
 	if err != nil {
 		return &v1.AdmissionResponse{
 			Result: &metav1.Status{
