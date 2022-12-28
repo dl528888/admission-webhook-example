@@ -7,7 +7,6 @@ require (
 	k8s.io/api v0.16.10
 	k8s.io/apimachinery v0.16.10
 	k8s.io/kubernetes v1.16.10
-	github.com/go-redis/redis/v8 v8.11.5
 )
 
 replace (
