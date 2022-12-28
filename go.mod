@@ -1,8 +1,6 @@
-module github.com/cnych/admission-webhook
-
-go 1.13
-
 require (
+	github.com/go-redis/redis v6.15.9+incompatible // indirect
+	github.com/go-redis/redis/v8 v8.11.5 // indirect
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	k8s.io/api v0.16.10
 	k8s.io/apimachinery v0.16.10
