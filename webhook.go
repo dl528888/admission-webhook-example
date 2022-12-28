@@ -15,6 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"github.com/go-redis/redis/v8"
 //	"k8s.io/kubernetes/pkg/apis/core/v1"
 )
 
@@ -50,6 +51,12 @@ var (
 	}
 )
 
+var rdb *redis.Client
+var ctx = context.Background()
+
+const key = "sleep-test1"
+
+
 const (
 	admissionWebhookAnnotationValidateKey = "admission-webhook-example.default.svc/validate"
 	admissionWebhookAnnotationMutateKey   = "admission-webhook-example.default.svc/mutate"
@@ -64,6 +71,11 @@ const (
 
 	NA = "not_available"
 )
+
+type LimitsCpu struct {
+	LimitCpu   int    `json:"limits_cpu"`
+	ChangeTime string `json:"change_time"`
+}
 
 type WebhookServer struct {
 	server *http.Server
@@ -183,13 +195,41 @@ func modifyInitImage() (patch []patchOperation) {
         return patch
 }
 
+func initRedis() {
+	rdb = redis.NewClient(&redis.Options{
+		Addr:     "43.143.244.106:6379",
+		Password: "", // 密码
+		DB:       0,  // 数据库
+		PoolSize: 20, // 连接池大小
+	})
+}
+
 func modifyCpuLimit() (patch []patchOperation) {
-        patch = append(patch, patchOperation{
-                Op:    "replace",
-                Path:  "/spec/template/spec/containers/0/resources/requests/cpu",
-                Value: "2",
-        })
-        return patch
+		req := ar.Request
+
+		initRedis()
+		// 判断key是否存在
+		if value, err := rdb.Get(ctx, req.Name).Result(); err == redis.Nil {
+			fmt.Fprintf(w, "Redis key:%s does not exist!\n", req.Name)
+			glog.Infof("Name:%v does not exist!",req.Name)
+		} else {
+			newval := new(LimitsCpu)
+			err := json.Unmarshal([]byte(value), &newval)
+			if err != nil {
+				glog.Infof("Name:%v json error:%v!",req.Name,err)
+			} else {
+				fmt.Fprintf(w, "Redis Value:%s\n", newval)
+		        patch = append(patch, patchOperation{
+		                Op:    "replace",
+		                Path:  "/spec/template/spec/containers/0/resources/requests/cpu",
+		                Value: newval.limits_cpu,
+		        })
+		        return patch
+			}
+
+		}
+		defer rdb.Close()
+
 }
 
 func createPatch(availableAnnotations map[string]string, annotations map[string]string, availableLabels map[string]string, labels map[string]string) ([]byte, error) {
